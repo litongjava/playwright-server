@@ -1,6 +1,6 @@
 package com.litongjava.playwright;
 
-import com.litongjava.tio.http.server.annotation.RequestPath;
+import com.litongjava.annotation.RequestPath;
 
 @RequestPath("/")
 public class IndexController {

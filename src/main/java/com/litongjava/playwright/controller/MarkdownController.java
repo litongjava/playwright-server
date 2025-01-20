@@ -1,9 +1,9 @@
 package com.litongjava.playwright.controller;
 
+import com.litongjava.annotation.RequestPath;
 import com.litongjava.playwright.instance.PlaywrightBrowser;
 import com.litongjava.tio.boot.http.TioRequestContext;
 import com.litongjava.tio.http.common.HttpResponse;
-import com.litongjava.tio.http.server.annotation.RequestPath;
 import com.litongjava.tio.http.server.util.Resps;
 import com.vladsch.flexmark.html2md.converter.FlexmarkHtmlConverter;
 

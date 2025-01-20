@@ -1,6 +1,6 @@
 package com.litongjava.playwright;
 
-import com.litongjava.jfinal.aop.annotation.AComponentScan;
+import com.litongjava.annotation.AComponentScan;
 import com.litongjava.playwright.instance.PlaywrightBrowser;
 import com.litongjava.tio.boot.TioApplication;
 
