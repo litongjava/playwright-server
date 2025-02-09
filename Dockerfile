@@ -1,5 +1,5 @@
 # 第一阶段：构建阶段
-FROM litongjava/maven:3.8.8-jdk8u391 AS builder
+FROM litongjava/maven:3.8.8-jdk_21_0_6 AS builder
 
 # 设置工作目录
 WORKDIR /src
@@ -12,7 +12,7 @@ COPY src /src/src
 RUN mvn package -DskipTests -Pproduction
 
 # 第二阶段：运行阶段
-FROM litongjava/jdk:8u391-stable-slim
+FROM litongjava/jdk:21_0_6-stable-slim
 
 # 设置工作目录
 WORKDIR /app

@@ -1,8 +1,11 @@
 package com.litongjava.playwright;
 
 import com.litongjava.annotation.AComponentScan;
-import com.litongjava.playwright.instance.PlaywrightBrowser;
 import com.litongjava.tio.boot.TioApplication;
+import com.microsoft.playwright.Browser;
+import com.microsoft.playwright.BrowserType;
+import com.microsoft.playwright.BrowserType.LaunchOptions;
+import com.microsoft.playwright.Playwright;
 
 @AComponentScan
 public class PlaywrightApp {
@@ -16,8 +19,10 @@ public class PlaywrightApp {
     }
     if (download) {
       System.out.println("download start");
-      PlaywrightBrowser.getContent("https://tio-boot.litongjava.com/");
-      PlaywrightBrowser.close();
+      LaunchOptions launchOptions = new BrowserType.LaunchOptions().setHeadless(true); // 使用无头模式
+      try (Playwright playwright = Playwright.create(); Browser launch = playwright.chromium().launch(launchOptions)) {
+
+      }
       System.out.println("download end");
     } else {
       long start = System.currentTimeMillis();

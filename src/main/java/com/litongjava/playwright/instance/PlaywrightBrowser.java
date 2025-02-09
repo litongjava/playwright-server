@@ -1,45 +1,122 @@
 package com.litongjava.playwright.instance;
 
-import com.microsoft.playwright.Browser;
+import java.util.concurrent.TimeUnit;
+
+import com.litongjava.playwright.pool.BrowserContextPool;
+import com.litongjava.tio.utils.environment.EnvUtils;
 import com.microsoft.playwright.BrowserContext;
-import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Page;
-import com.microsoft.playwright.BrowserType.LaunchOptions;
-import com.microsoft.playwright.Playwright;
 
 public enum PlaywrightBrowser {
   INSTANCE;
 
-  // 创建 Playwright 实例
-  public static Playwright playwright = Playwright.create();
-  public static Browser browser;
+  // 定义池化管理器
+  public static BrowserContextPool contextPool;
   static {
-    // 启动 Chromium 浏览器
-    LaunchOptions launchOptions = new BrowserType.LaunchOptions().setHeadless(true); // 使用无头模式
-    browser = playwright.chromium().launch(launchOptions);
+    // 初始化上下文池，假设池大小为10，可根据需要调整
+    if (EnvUtils.isDev()) {
+      contextPool = new BrowserContextPool(2);
+    } else {
+      contextPool = new BrowserContextPool(Runtime.getRuntime().availableProcessors() * 2);
+    }
   }
 
-  public static Browser browser() {
-    return browser;
+  public static void init() {
   }
 
   public static void close() {
-    browser.close();
-    playwright.close();
+    // 关闭上下文池中的所有上下文
+    contextPool.close();
+  }
+
+  public static String getHtml(String url) {
+    BrowserContext context = null;
+    Page page = null;
+    String content = "";
+    try {
+      // 从池中获取一个上下文，最多等待5秒
+      context = contextPool.acquire(5, TimeUnit.SECONDS);
+      if (context == null) {
+        throw new RuntimeException("无法获取 BrowserContext");
+      }
+      page = context.newPage();
+      page.navigate(url);
+      content = page.content();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("获取 BrowserContext 被中断", e);
+    } finally {
+      if (page != null) {
+        page.close();
+      }
+      // 将上下文归还池中
+      if (context != null) {
+        contextPool.release(context);
+      }
+    }
+    return content;
+  }
+
+  public static String getBodyContent(String url) {
+    BrowserContext context = null;
+    Page page = null;
+    String textContent = "";
+    try {
+      context = contextPool.acquire(5, TimeUnit.SECONDS);
+      if (context == null) {
+        throw new RuntimeException("无法获取 BrowserContext");
+      }
+      page = context.newPage();
+      page.navigate(url);
+      textContent = page.innerText("body");
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("获取 BrowserContext 被中断", e);
+    } finally {
+      if (page != null) {
+        page.close();
+      }
+      if (context != null) {
+        contextPool.release(context);
+      }
+    }
+    return textContent;
   }
 
   public static String getContent(String url) {
-    // 创建新浏览器上下文
-    BrowserContext context = browser.newContext();
-    Page page = context.newPage();
-
-    // 导航到目标网页
-    page.navigate(url);
-    // 获取网页内容
-    String content = page.content();
-    // 关闭页面
-    page.close();
-
-    return content;
+    BrowserContext context = null;
+    Page page = null;
+    try {
+      context = contextPool.acquire(5, TimeUnit.SECONDS);
+      if (context == null) {
+        throw new RuntimeException("无法获取 BrowserContext");
+      }
+      page = context.newPage();
+      page.navigate(url);
+      return page.content();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("获取 BrowserContext 被中断", e);
+    } finally {
+      if (page != null) {
+        page.close();
+      }
+      if (context != null) {
+        contextPool.release(context);
+      }
+    }
   }
+
+  public static BrowserContext acquire() {
+    try {
+      return contextPool.acquire(60, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e.getMessage(), e);
+    }
+  }
+
+  public static void release(BrowserContext context) {
+    contextPool.release(context);
+  }
+
 }
