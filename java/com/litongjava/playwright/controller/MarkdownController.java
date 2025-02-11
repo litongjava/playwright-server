@@ -16,7 +16,7 @@ public class MarkdownController {
   public HttpResponse markdown(String url) {
     log.info("访问的 URL: {}", url);
 
-    String html = PlaywrightBrowser.getContent(url);
+    String html = PlaywrightBrowser.getHtml(url);
 
     // 创建转换器实例
     FlexmarkHtmlConverter converter = FlexmarkHtmlConverter.builder().build();

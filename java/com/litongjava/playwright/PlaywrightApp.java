@@ -21,7 +21,6 @@ public class PlaywrightApp {
       System.out.println("download start");
       LaunchOptions launchOptions = new BrowserType.LaunchOptions().setHeadless(true); // 使用无头模式
       try (Playwright playwright = Playwright.create(); Browser launch = playwright.chromium().launch(launchOptions)) {
-
       }
       System.out.println("download end");
     } else {

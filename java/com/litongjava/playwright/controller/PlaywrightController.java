@@ -16,7 +16,7 @@ public class PlaywrightController {
   public HttpResponse index(String url) {
     log.info("访问的 URL: {}", url);
 
-    String content = PlaywrightBrowser.getContent(url);
+    String content = PlaywrightBrowser.getHtml(url);
 
     // 返回网页内容
     return Resps.html(TioRequestContext.getResponse(), content);

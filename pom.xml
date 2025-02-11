@@ -1,4 +1,6 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.litongjava</groupId>
   <artifactId>playwright-server</artifactId>
@@ -10,11 +12,11 @@
     <maven.compiler.target>${java.version}</maven.compiler.target>
     <lombok-version>1.18.30</lombok-version>
     <fastjson2.version>2.0.52</fastjson2.version>
-    
+
     <hotswap-classloader.version>1.2.5</hotswap-classloader.version>
     <tio-boot.version>1.9.1</tio-boot.version>
     <jfinal-aop.version>1.3.5</jfinal-aop.version>
-    
+
     <final.name>web-hello</final.name>
     <main.class>com.litongjava.playwright.PlaywrightApp</main.class>
   </properties>
@@ -81,6 +83,38 @@
       <artifactId>junit</artifactId>
       <version>4.12</version>
       <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.alibaba</groupId>
+      <artifactId>druid</artifactId>
+      <version>0.2.9</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.alibaba</groupId>
+      <artifactId>easyexcel</artifactId>
+      <version>2.2.10</version>
+    </dependency>
+
+
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.2.24</version>
+    </dependency>
+
+    <!-- Tio Boot 框架 -->
+    <dependency>
+      <groupId>com.litongjava</groupId>
+      <artifactId>tio-boot-admin</artifactId>
+      <version>1.0.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>31.1-jre</version>
     </dependency>
 
 

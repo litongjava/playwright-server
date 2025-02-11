@@ -74,7 +74,7 @@ docker build -t litongjava/playwright-server:1.0.0 .
 Run the Docker container:
 
 ```bash
-docker run -p 8080:8080 litongjava/playwright-server:1.0.0
+docker run -p 8080:80 litongjava/playwright-server:1.0.0
 ```
 
 ## Conclusion

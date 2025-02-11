@@ -1,4 +1,4 @@
-package com.litongjava.playwright;
+package com.litongjava.playwright.controller;
 
 import com.litongjava.annotation.RequestPath;
 
@@ -6,6 +6,7 @@ import com.litongjava.annotation.RequestPath;
 public class IndexController {
   @RequestPath()
   public String index() {
+    
     return "index";
   }
 }

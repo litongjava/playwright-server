@@ -82,10 +82,11 @@ public enum PlaywrightBrowser {
     }
     return textContent;
   }
-
-  public static String getContent(String url) {
+  
+  public static String getBodyHtml(String url) {
     BrowserContext context = null;
     Page page = null;
+    String textContent = "";
     try {
       context = contextPool.acquire(5, TimeUnit.SECONDS);
       if (context == null) {
@@ -93,7 +94,7 @@ public enum PlaywrightBrowser {
       }
       page = context.newPage();
       page.navigate(url);
-      return page.content();
+      textContent = page.innerHTML("body");
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new RuntimeException("获取 BrowserContext 被中断", e);
@@ -105,6 +106,7 @@ public enum PlaywrightBrowser {
         contextPool.release(context);
       }
     }
+    return textContent;
   }
 
   public static BrowserContext acquire() {
