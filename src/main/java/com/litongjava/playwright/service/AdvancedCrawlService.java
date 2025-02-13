@@ -27,6 +27,7 @@ import com.litongjava.model.web.WebPageContent;
 import com.litongjava.playwright.consts.TableNames;
 import com.litongjava.playwright.pool.PlaywrightPool;
 import com.litongjava.playwright.utils.TaskExecutorUtils;
+import com.litongjava.playwright.vo.CrawlTask;
 import com.litongjava.tio.utils.hutool.FilenameUtils;
 import com.litongjava.tio.utils.hutool.StrUtil;
 import com.litongjava.tio.utils.snowflake.SnowflakeIdUtils;
@@ -36,7 +37,7 @@ public class AdvancedCrawlService {
 
   // 使用 Java 21 虚拟线程的 Executor（每个任务使用一个虚拟线程）
   private final ExecutorService executor = TaskExecutorUtils.executor;
-  // 改用任务对象，记录 URL 与当前爬取深度
+  // 限制队列容量为 10000，达到容量后 put() 方法将阻塞
   private final BlockingQueue<CrawlTask> taskQueue = new LinkedBlockingQueue<>(10000);
   // 使用 Guava 的 Striped 锁，防止并发下重复存库
   private final Striped<Lock> stripedLocks = Striped.lock(64);
@@ -54,19 +55,6 @@ public class AdvancedCrawlService {
   private static final int MAX_DEPTH = 5;
 
   /**
-   * 内部任务类，记录 URL 及其爬取深度
-   */
-  private static class CrawlTask {
-    final String url;
-    final int depth;
-
-    public CrawlTask(String url, int depth) {
-      this.url = url;
-      this.depth = depth;
-    }
-  }
-
-  /**
    * 构造时传入初始 URL，内部会对 URL 做规范化、提取域名，并启动爬虫任务及监控线程
    *
    * @param startUrl 爬虫入口 URL
@@ -82,12 +70,16 @@ public class AdvancedCrawlService {
   }
 
   /**
-   * 将初始 URL 提交到任务队列
+   * 将初始 URL 提交到任务队列，使用阻塞式 put() 保证限流
    */
   private void submitInitialTask(String url, int depth) {
     if (shouldProcess(url) && depth <= MAX_DEPTH) {
-      taskQueue.offer(new CrawlTask(url, depth));
-      activeTasks.incrementAndGet();
+      try {
+        taskQueue.put(new CrawlTask(url, depth));
+        activeTasks.incrementAndGet();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
     }
   }
 
@@ -136,8 +128,8 @@ public class AdvancedCrawlService {
    * 并在解析页面时根据深度决定是否提交新任务
    */
   private void processTask(CrawlTask task) {
-    String url = task.url;
-    int currentDepth = task.depth;
+    String url = task.getUrl();
+    int currentDepth = task.getDepth();
     if (url.endsWith(".pdf")) {
       // 处理 PDF 文件
       String content = Aop.get(WebPageService.class).getPdfContent(url);
@@ -158,14 +150,20 @@ public class AdvancedCrawlService {
           String title = webPage.getTitle();
           String html = webPage.getContent();
           saveContent(url, title, "html", html);
-          // 如果当前爬取深度未达到最大深度，并且总页面数未超出限制，则解析页面并提交新任务
+          // 如果当前爬取深度未达到最大深度，则解析页面并提交新任务
           if (currentDepth < MAX_DEPTH) {
             Document doc = Jsoup.parse(html, url);
             Set<String> links = extractValidLinks(doc);
             for (String link : links) {
               if (shouldProcess(link)) {
-                taskQueue.offer(new CrawlTask(link, currentDepth + 1));
-                activeTasks.incrementAndGet();
+                try {
+                  // 队列已满时 put() 会阻塞，等待任务被消费
+                  taskQueue.put(new CrawlTask(link, currentDepth + 1));
+                  activeTasks.incrementAndGet();
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                  throw new RuntimeException(e);
+                }
               }
             }
           }
@@ -226,9 +224,7 @@ public class AdvancedCrawlService {
       if (exists(tableName, "url", canonical)) {
         return;
       }
-      Row row = new Row().set("id", SnowflakeIdUtils.id()).set("url", canonical).set("title", title)
-          //
-          .set("type", type).set("html", html).set("text", Jsoup.parse(html).text());
+      Row row = new Row().set("id", SnowflakeIdUtils.id()).set("url", canonical).set("title", title).set("type", type).set("html", html).set("text", Jsoup.parse(html).text());
       Db.save(tableName, row);
       // 计数新保存的页面
       processedPages.incrementAndGet();
@@ -248,7 +244,6 @@ public class AdvancedCrawlService {
       EhCacheKit.put(cacheName, value, exists);
     }
     return exists;
-
   }
 
   /**
@@ -301,19 +296,6 @@ public class AdvancedCrawlService {
       url = url.substring(0, url.length() - 1);
     }
     return url;
-  }
-
-  /**
-   * 对 URL 进行预处理，针对路径中的非法字符进行编码。
-   *
-   * @param url 原始 URL
-   * @return 处理后的 URL
-   */
-  private String encodeUrl(String url) {
-    if (url == null || url.isEmpty()) {
-      return url;
-    }
-    return url.replace("[", "%5B").replace("]", "%5D");
   }
 
   /**

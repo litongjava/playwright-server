@@ -92,7 +92,7 @@ public class WebPageService {
           e.printStackTrace();
         }
         // 导航至目标 URL
-        page.navigate(url);
+        page.navigate(encodeUrl(url));
         // 等待页面达到网络空闲状态和加载完成状态
         page.waitForLoadState(LoadState.NETWORKIDLE);
         page.waitForLoadState(LoadState.LOAD);
@@ -112,4 +112,18 @@ public class WebPageService {
       lock.unlock();
     }
   }
+  
+  /**
+   * 对 URL 进行预处理，针对路径中的非法字符进行编码。
+   *
+   * @param url 原始 URL
+   * @return 处理后的 URL
+   */
+  private String encodeUrl(String url) {
+    if (url == null || url.isEmpty()) {
+      return url;
+    }
+    return url.replace("[", "%5B").replace("]", "%5D");
+  }
+
 }
