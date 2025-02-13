@@ -53,6 +53,10 @@ public class AdvancedCrawlService {
   private static final int WORKER_COUNT = 100;
   // 最大爬取深度（防止无限制递归）
   private static final int MAX_DEPTH = 5;
+  // 最大重试次数（超过该次数后不再重试此 URL）
+  private static final int MAX_RETRIES = 3;
+  // 失败计数缓存的名称（EhCache 中存储 URL 对应的失败次数）
+  private static final String FAIL_CACHE = "AdvancedCrawlService_fail";
 
   /**
    * 构造时传入初始 URL，内部会对 URL 做规范化、提取域名，并启动爬虫任务及监控线程
@@ -130,22 +134,35 @@ public class AdvancedCrawlService {
   private void processTask(CrawlTask task) {
     String url = task.getUrl();
     int currentDepth = task.getDepth();
+    String canonical = canonicalizeUrl(url);
+    // 检查该 URL 是否已累计失败达到上限
+    Integer failCount = EhCacheKit.get(FAIL_CACHE, canonical);
+    if (failCount != null && failCount >= MAX_RETRIES) {
+      log.error("Skipping URL {} as it has already failed {} times", url, failCount);
+      return;
+    }
+
+    // 针对 PDF 与 HTML 分支分别处理
     if (url.endsWith(".pdf")) {
-      // 处理 PDF 文件
-      String content = Aop.get(WebPageService.class).getPdfContent(url);
-      String suffix = FilenameUtils.getSuffix(url);
-      String filename = FilenameUtils.getBaseName(url);
-      if (content != null) {
-        content = content.replace("\u0000", "").trim();
-        saveContent(url, filename, suffix, content);
+      try {
+        // 处理 PDF 文件
+        String content = Aop.get(WebPageService.class).getPdfContent(url);
+        String suffix = FilenameUtils.getSuffix(url);
+        String filename = FilenameUtils.getBaseName(url);
+        if (content != null) {
+          content = content.replace("\u0000", "").trim();
+          saveContent(url, filename, suffix, content);
+        }
+      } catch (Exception e) {
+        log.error("PDF processing failed for URL {}: {}", url, e.getMessage());
+        updateFailureCount(url);
       }
     } else {
-      int maxRetries = 3;
       int attempt = 0;
       boolean success = false;
-      while (attempt < maxRetries && !success) {
+      while (attempt < MAX_RETRIES && !success) {
         try {
-          log.info("Processing URL: {} (Attempt {}/{})", url, attempt + 1, maxRetries);
+          log.info("Processing URL: {} (Attempt {}/{})", url, attempt + 1, MAX_RETRIES);
           WebPageContent webPage = Aop.get(WebPageService.class).getHtml(url);
           String title = webPage.getTitle();
           String html = webPage.getContent();
@@ -170,11 +187,12 @@ public class AdvancedCrawlService {
           success = true;
         } catch (Exception e) {
           attempt++;
-          if (attempt < maxRetries) {
+          if (attempt < MAX_RETRIES) {
             log.warn("Attempt {} for URL {} failed with error: {}. Retrying...", attempt, url, e.getMessage());
           } else {
-            log.error("All {} attempts failed for URL {}. Error: {}", maxRetries, url, e.getMessage(), e);
+            log.error("All {} attempts failed for URL {}. Error: {}", MAX_RETRIES, url, e.getMessage(), e);
             handleError(url, e);
+            updateFailureCount(url);
           }
         }
       }
@@ -251,9 +269,10 @@ public class AdvancedCrawlService {
    * - URL 非空
    * - URL 属于同一域
    * - 数据库中不存在该 URL（去重）
+   * - 失败次数未达到 MAX_RETRIES
    *
    * @param url 待处理 URL
-   * @return true 表示需要处理；false 表示已处理或不符合条件
+   * @return true 表示需要处理；false 表示已处理、失败或不符合条件
    */
   private boolean shouldProcess(String url) {
     if (url == null || url.isEmpty())
@@ -264,6 +283,11 @@ public class AdvancedCrawlService {
     }
     // 使用标准化 URL 进行去重判断，依赖数据库
     String canonical = canonicalizeUrl(url);
+    // 判断该 URL 是否已经连续失败超过 MAX_RETRIES 次
+    Integer failureCount = EhCacheKit.get(FAIL_CACHE, canonical);
+    if (failureCount != null && failureCount >= MAX_RETRIES) {
+      return false;
+    }
     return !exists(tableName, "url", canonical);
   }
 
@@ -337,6 +361,21 @@ public class AdvancedCrawlService {
    */
   private void handleError(String url, Exception e) {
     log.error("Error processing URL {}: {}", url, e.getMessage(), e);
+  }
+
+  /**
+   * 更新指定 URL 的失败计数，失败次数超过 MAX_RETRIES 后，下次将跳过该 URL
+   *
+   * @param url 当前处理的 URL
+   */
+  private void updateFailureCount(String url) {
+    String canonical = canonicalizeUrl(url);
+    Integer count = EhCacheKit.get(FAIL_CACHE, canonical);
+    if (count == null) {
+      count = 0;
+    }
+    count++;
+    EhCacheKit.put(FAIL_CACHE, canonical, count);
   }
 
   /**

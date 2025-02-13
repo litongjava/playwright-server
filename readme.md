@@ -43,6 +43,10 @@ curl "http://localhost/markdown?url=https://www.sjsu.edu/registrar/calendar/fall
 ```curl
 curl http://127.0.0.1:8007/crawl?url=https://hawaii.edu
 ```
+
+```
+curl http://127.0.0.1:8007/crawl?url=https://www.kapiolani.hawaii.edu/
+```
 ## Build and Run with Docker
 
 ### Dockerfile

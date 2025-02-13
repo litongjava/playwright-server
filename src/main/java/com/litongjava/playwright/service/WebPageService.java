@@ -125,5 +125,4 @@ public class WebPageService {
     }
     return url.replace("[", "%5B").replace("]", "%5D");
   }
-
 }
