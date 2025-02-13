@@ -26,7 +26,6 @@ import com.litongjava.playwright.consts.TableNames;
 import com.litongjava.playwright.pool.PlaywrightPool;
 import com.litongjava.playwright.utils.PDFUtils;
 import com.litongjava.playwright.utils.TaskExecutorUtils;
-import com.litongjava.tio.utils.environment.EnvUtils;
 import com.litongjava.tio.utils.hutool.FilenameUtils;
 import com.litongjava.tio.utils.hutool.StrUtil;
 import com.litongjava.tio.utils.snowflake.SnowflakeIdUtils;
@@ -47,9 +46,7 @@ public class AdvancedCrawlService {
   // 活跃任务计数器
   private final AtomicInteger activeTasks = new AtomicInteger(0);
   // 基础域名（只爬取同一域内页面）
-  private final String baseDomain;
-  // Playwright 连接池
-  private final PlaywrightPool playwrightPool;
+  private String baseDomain;
 
   // 新增：工作线程数量（可根据需要调整）
   private static final int WORKER_COUNT = 100;
@@ -59,17 +56,9 @@ public class AdvancedCrawlService {
    *
    * @param startUrl 爬虫入口 URL
    */
-  public AdvancedCrawlService(String startUrl) {
+  public void start(String startUrl) {
     String normalizedStartUrl = normalizeUrl(startUrl);
     this.baseDomain = extractDomain(normalizedStartUrl);
-    // 初始化 PlaywrightPool，这里假设池大小为 100（可根据机器情况调整）
-    if (EnvUtils.isDev()) {
-      this.playwrightPool = new PlaywrightPool(2);
-    } else {
-      int cpuCount = Runtime.getRuntime().availableProcessors();
-      this.playwrightPool = new PlaywrightPool(cpuCount * 4);
-
-    }
     submitInitialTask(normalizedStartUrl);
     // 启动多个工作线程（虚拟线程），实现并发爬取
     startWorkers();
@@ -147,7 +136,7 @@ public class AdvancedCrawlService {
       int attempt = 0;
       boolean success = false;
       while (attempt < maxRetries && !success) {
-        try (Page page = playwrightPool.acquirePage()) {
+        try (Page page = PlaywrightPool.acquirePage()) {
           // 设置页面超时时间为 1 分钟（60000ms）
           page.setDefaultNavigationTimeout(60000);
           page.setDefaultTimeout(60000);
@@ -355,7 +344,7 @@ public class AdvancedCrawlService {
   private void startMonitor() {
     Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory()).scheduleAtFixedRate(() -> {
       log.info("Status - Queue size: {}, Active tasks: {}, Visited URLs: {}", urlQueue.size(), activeTasks.get(), visitedUrls.size());
-      log.info("PlaywrightPool - Available: {}/{}", playwrightPool.availableCount(), playwrightPool.totalCount());
+      log.info("PlaywrightPool - Available: {}/{}", PlaywrightPool.availableCount(), PlaywrightPool.totalCount());
     }, 0, 30, TimeUnit.SECONDS);
   }
 }

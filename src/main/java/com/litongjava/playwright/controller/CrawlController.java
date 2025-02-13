@@ -15,7 +15,8 @@ public class CrawlController {
   public RespBodyVo index(String url) {
     log.info("url:{}", url);
     // AdvancedCrawlService 构造时启动爬虫任务
-    new AdvancedCrawlService(url);
+    new AdvancedCrawlService().start(url);
+    ;
     return RespBodyVo.ok();
   }
 }

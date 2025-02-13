@@ -16,23 +16,23 @@ import com.microsoft.playwright.BrowserType.LaunchOptions;
  * 当 Page 关闭时自动将 BrowserContext 归还池中。
  */
 public class PlaywrightPool {
-  private final BlockingQueue<BrowserContext> pool;
-  private final BlockingQueue<Playwright> playwrightPool;
-  private final BlockingQueue<Browser> browserPool;
-  private final int poolSize;
-  LaunchOptions launchOptions = new BrowserType.LaunchOptions().setHeadless(true);
+  private static BlockingQueue<BrowserContext> pool = null;
+  private static BlockingQueue<Playwright> playwrightPool = null;
+  private static BlockingQueue<Browser> browserPool = null;
+  private static int poolSize = 0;
+  public static LaunchOptions launchOptions = new BrowserType.LaunchOptions().setHeadless(true);
 
   /**
    * 构造时初始化 Playwright、Browser 以及固定数量的 BrowserContext
    *
    * @param poolSize 池大小
    */
-  public PlaywrightPool(int poolSize) {
-    this.poolSize = poolSize;
+  public static void init(int poolSize) {
+    PlaywrightPool.poolSize = poolSize;
 
-    pool = new ArrayBlockingQueue<>(poolSize);
-    playwrightPool = new ArrayBlockingQueue<>(poolSize);
-    browserPool = new ArrayBlockingQueue<>(poolSize);
+    PlaywrightPool.pool = new ArrayBlockingQueue<>(poolSize);
+    PlaywrightPool.playwrightPool = new ArrayBlockingQueue<>(poolSize);
+    PlaywrightPool.browserPool = new ArrayBlockingQueue<>(poolSize);
     for (int i = 0; i < poolSize; i++) {
       Playwright playwright = Playwright.create();
       Browser browser = playwright.chromium().launch(launchOptions);
@@ -50,7 +50,7 @@ public class PlaywrightPool {
    * @return PooledPage 对象，使用完毕后调用 close() 归还 BrowserContext
    * @throws InterruptedException 如果等待过程中被中断
    */
-  public Page acquirePage() throws InterruptedException {
+  public static Page acquirePage() throws InterruptedException {
     BrowserContext context = pool.take();
     Page page = context.newPage();
     return new PooledPage(page, context, pool);
@@ -61,7 +61,7 @@ public class PlaywrightPool {
    *
    * @return 可用数量
    */
-  public int availableCount() {
+  public static int availableCount() {
     return pool.size();
   }
 
@@ -70,24 +70,25 @@ public class PlaywrightPool {
    *
    * @return 池大小
    */
-  public int totalCount() {
+  public static int totalCount() {
     return poolSize;
   }
 
   /**
    * 关闭池中所有 BrowserContext 以及 Browser、Playwright 实例
    */
-  public void close() {
+  public static void close() {
     for (BrowserContext context : pool) {
       context.close();
     }
-    
+
     for (Playwright context : playwrightPool) {
       context.close();
     }
-    
+
     for (Browser context : browserPool) {
       context.close();
     }
   }
+
 }
