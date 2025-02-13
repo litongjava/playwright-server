@@ -21,7 +21,7 @@ public class PlaywrightConfig {
         PlaywrightPool.init(2);
       } else {
         int cpuCount = Runtime.getRuntime().availableProcessors();
-        PlaywrightPool.init(cpuCount * 2);
+        PlaywrightPool.init(cpuCount);
       }
       log.info("end init playwright");
 

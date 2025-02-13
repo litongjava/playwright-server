@@ -16,7 +16,6 @@ public class CrawlController {
     log.info("url:{}", url);
     // AdvancedCrawlService 构造时启动爬虫任务
     new AdvancedCrawlService().start(url);
-    ;
     return RespBodyVo.ok();
   }
 }

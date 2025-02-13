@@ -22,15 +22,14 @@ import com.google.common.util.concurrent.Striped;
 import com.litongjava.db.activerecord.Db;
 import com.litongjava.db.activerecord.Row;
 import com.litongjava.ehcache.EhCacheKit;
+import com.litongjava.jfinal.aop.Aop;
+import com.litongjava.model.web.WebPageContent;
 import com.litongjava.playwright.consts.TableNames;
 import com.litongjava.playwright.pool.PlaywrightPool;
-import com.litongjava.playwright.utils.PDFUtils;
 import com.litongjava.playwright.utils.TaskExecutorUtils;
 import com.litongjava.tio.utils.hutool.FilenameUtils;
 import com.litongjava.tio.utils.hutool.StrUtil;
 import com.litongjava.tio.utils.snowflake.SnowflakeIdUtils;
-import com.microsoft.playwright.Page;
-import com.microsoft.playwright.options.LoadState;
 
 public class AdvancedCrawlService {
   private static final Logger log = LoggerFactory.getLogger(AdvancedCrawlService.class);
@@ -47,6 +46,7 @@ public class AdvancedCrawlService {
   private final AtomicInteger processedPages = new AtomicInteger(0);
   // 基础域名（只爬取同一域内页面）
   private String baseDomain;
+  String tableName = TableNames.hawaii_web_page;
 
   // 工作线程数量（可根据需要调整）
   private static final int WORKER_COUNT = 100;
@@ -140,33 +140,24 @@ public class AdvancedCrawlService {
     int currentDepth = task.depth;
     if (url.endsWith(".pdf")) {
       // 处理 PDF 文件
-      String content = PDFUtils.getContent(url);
+      String content = Aop.get(WebPageService.class).getPdfContent(url);
       String suffix = FilenameUtils.getSuffix(url);
+      String filename = FilenameUtils.getBaseName(url);
       if (content != null) {
         content = content.replace("\u0000", "").trim();
-        saveContent(url, suffix, content);
+        saveContent(url, filename, suffix, content);
       }
     } else {
       int maxRetries = 3;
       int attempt = 0;
       boolean success = false;
       while (attempt < maxRetries && !success) {
-        try (Page page = PlaywrightPool.acquirePage()) {
-          // 设置页面超时时间为 1 分钟（60000ms）
-          page.setDefaultNavigationTimeout(60000);
-          page.setDefaultTimeout(60000);
-          // 控制爬取速率
-          Thread.sleep(500);
+        try {
           log.info("Processing URL: {} (Attempt {}/{})", url, attempt + 1, maxRetries);
-          // 导航至目标 URL
-          page.navigate(url);
-          // 等待页面达到网络空闲状态和加载完成状态
-          page.waitForLoadState(LoadState.NETWORKIDLE);
-          page.waitForLoadState(LoadState.LOAD);
-          String html = page.content();
-          String title = page.title();
-          // 存储页面内容（防止重复存储）
-          saveContent(url, title, html);
+          WebPageContent webPage = Aop.get(WebPageService.class).getHtml(url);
+          String title = webPage.getTitle();
+          String html = webPage.getContent();
+          saveContent(url, title, "html", html);
           // 如果当前爬取深度未达到最大深度，并且总页面数未超出限制，则解析页面并提交新任务
           if (currentDepth < MAX_DEPTH) {
             Document doc = Jsoup.parse(html, url);
@@ -221,18 +212,24 @@ public class AdvancedCrawlService {
    * @param title 页面标题或文件后缀
    * @param html  页面 HTML 内容或 PDF 提取的文本
    */
-  private void saveContent(String url, String title, String html) {
+  private void saveContent(String url, String title, String type, String html) {
     // 获取标准化 URL
     String canonical = canonicalizeUrl(url);
+    if (exists(tableName, "url", canonical)) {
+      return;
+    }
+
     Lock lock = stripedLocks.get(canonical);
     lock.lock();
     try {
       // 如果数据库中已经存在该 canonical URL，则跳过保存
-      if (exists(TableNames.web_page_cache, "url", canonical)) {
+      if (exists(tableName, "url", canonical)) {
         return;
       }
-      Row row = new Row().set("id", SnowflakeIdUtils.id()).set("url", canonical).set("title", title).set("html", html).set("text", Jsoup.parse(html).text());
-      Db.save(TableNames.web_page_cache, row);
+      Row row = new Row().set("id", SnowflakeIdUtils.id()).set("url", canonical).set("title", title)
+          //
+          .set("type", type).set("html", html).set("text", Jsoup.parse(html).text());
+      Db.save(tableName, row);
       // 计数新保存的页面
       processedPages.incrementAndGet();
     } finally {
@@ -246,10 +243,12 @@ public class AdvancedCrawlService {
     if (cacheData != null) {
       return cacheData;
     }
-
-    boolean exists = Db.exists(TableNames.web_page_cache, "field", value);
-    EhCacheKit.put(cacheName, value, exists);
+    boolean exists = Db.exists(tableName, field, value);
+    if (exists) {
+      EhCacheKit.put(cacheName, value, exists);
+    }
     return exists;
+
   }
 
   /**
@@ -265,11 +264,12 @@ public class AdvancedCrawlService {
     if (url == null || url.isEmpty())
       return false;
     String normalized = normalizeUrl(url);
-    if (!isSameDomain(normalized))
+    if (!isSameDomain(normalized)) {
       return false;
+    }
     // 使用标准化 URL 进行去重判断，依赖数据库
     String canonical = canonicalizeUrl(url);
-    return !exists(TableNames.web_page_cache, "url", canonical);
+    return !exists(tableName, "url", canonical);
   }
 
   /**
