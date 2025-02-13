@@ -24,4 +24,4 @@ COPY --from=builder /src/target/playwright-server-1.0.0.jar /app/
 RUN java -jar /app/playwright-server-1.0.0.jar --download
 
 # 运行jar文件
-CMD ["java", "-Xmx900m","-Xms512m","-jar", "playwright-server-1.0.0.jar"]
+CMD ["java","-jar", "playwright-server-1.0.0.jar"]
