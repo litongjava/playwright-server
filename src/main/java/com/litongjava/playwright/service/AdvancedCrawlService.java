@@ -24,7 +24,6 @@ import com.litongjava.db.activerecord.Row;
 import com.litongjava.ehcache.EhCacheKit;
 import com.litongjava.jfinal.aop.Aop;
 import com.litongjava.model.web.WebPageContent;
-import com.litongjava.playwright.consts.TableNames;
 import com.litongjava.playwright.pool.PlaywrightPool;
 import com.litongjava.playwright.utils.TaskExecutorUtils;
 import com.litongjava.playwright.vo.CrawlTask;
@@ -47,7 +46,7 @@ public class AdvancedCrawlService {
   private final AtomicInteger processedPages = new AtomicInteger(0);
   // 基础域名（只爬取同一域内页面）
   private String baseDomain;
-  String tableName = TableNames.hawaii_web_page;
+  String tableName;
 
   // 工作线程数量（可根据需要调整）
   private static final int WORKER_COUNT = 100;
@@ -57,6 +56,10 @@ public class AdvancedCrawlService {
   private static final int MAX_RETRIES = 3;
   // 失败计数缓存的名称（EhCache 中存储 URL 对应的失败次数）
   private static final String FAIL_CACHE = "AdvancedCrawlService_fail";
+
+  public AdvancedCrawlService(String table_name) {
+    this.tableName = table_name;
+  }
 
   /**
    * 构造时传入初始 URL，内部会对 URL 做规范化、提取域名，并启动爬虫任务及监控线程
