@@ -14,14 +14,14 @@ public class PlaywrightConfig {
 
   @Initialization
   public void config() {
-    if (EnvUtils.getBoolean("playwright.enable", false)) {
+    if (EnvUtils.getBoolean("playwright.enable", true)) {
       // 启动
       log.info("start init playwright");
       if (EnvUtils.isDev()) {
         PlaywrightPool.init(2);
       } else {
         int cpuCount = Runtime.getRuntime().availableProcessors();
-        PlaywrightPool.init(cpuCount);
+        PlaywrightPool.init(cpuCount * 2);
       }
       log.info("end init playwright");
 

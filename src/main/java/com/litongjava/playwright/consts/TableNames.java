@@ -1,5 +1,5 @@
 package com.litongjava.playwright.consts;
 
 public interface TableNames {
-  String cache_table_name="web_page_cache";
+  String web_page_cache = "web_page_cache";
 }
