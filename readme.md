@@ -40,12 +40,8 @@ curl "http://localhost/playwright?url=https://www.sjsu.edu/registrar/calendar/fa
 curl "http://localhost/markdown?url=https://www.sjsu.edu/registrar/calendar/fall-2024.php"
 ```
 ### a website
-```curl
-curl http://127.0.0.1:8007/crawl?url=https://hawaii.edu
 ```
-
-```
-curl http://127.0.0.1:8007/crawl?url=https://www.kapiolani.hawaii.edu/
+curl http://127.0.0.1:8007/crawl/hawaii_kapiolani_web_page
 ```
 ## Build and Run with Docker
 

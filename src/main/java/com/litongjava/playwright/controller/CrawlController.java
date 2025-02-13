@@ -19,7 +19,7 @@ public class CrawlController {
     return RespBodyVo.ok();
   }
   
-  @Get("hawaii_kapiolani_web_page")
+  @Get("/hawaii_kapiolani_web_page")
   public RespBodyVo index(String url) {
     log.info("url:{}", url);
     // AdvancedCrawlService 构造时启动爬虫任务
