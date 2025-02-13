@@ -20,8 +20,8 @@ public class CrawlController {
   }
   
   @Get("/hawaii_kapiolani_web_page")
-  public RespBodyVo index(String url) {
-    log.info("url:{}", url);
+  public RespBodyVo index() {
+    String url="https://www.kapiolani.hawaii.edu/";
     // AdvancedCrawlService 构造时启动爬虫任务
     new AdvancedCrawlService("hawaii_kapiolani_web_page").start(url);
     return RespBodyVo.ok();

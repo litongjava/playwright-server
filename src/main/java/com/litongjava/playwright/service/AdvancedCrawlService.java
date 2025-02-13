@@ -31,8 +31,10 @@ import com.litongjava.tio.utils.hutool.FilenameUtils;
 import com.litongjava.tio.utils.hutool.StrUtil;
 import com.litongjava.tio.utils.snowflake.SnowflakeIdUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class AdvancedCrawlService {
-  private static final Logger log = LoggerFactory.getLogger(AdvancedCrawlService.class);
 
   // 使用 Java 21 虚拟线程的 Executor（每个任务使用一个虚拟线程）
   private final ExecutorService executor = TaskExecutorUtils.executor;
@@ -193,8 +195,7 @@ public class AdvancedCrawlService {
           if (attempt < MAX_RETRIES) {
             log.warn("Attempt {} for URL {} failed with error: {}. Retrying...", attempt, url, e.getMessage());
           } else {
-            log.error("All {} attempts failed for URL {}. Error: {}", MAX_RETRIES, url, e.getMessage(), e);
-            handleError(url, e);
+            log.error("All {} attempts failed for URL {}. Error: {}", MAX_RETRIES, url, e.getMessage());
             updateFailureCount(url);
           }
         }
@@ -354,16 +355,6 @@ public class AdvancedCrawlService {
   private String canonicalizeUrl(String url) {
     String normalized = normalizeUrl(url);
     return normalized.replaceFirst("(?i)^(https?://)", "");
-  }
-
-  /**
-   * 处理爬取过程中的异常，记录错误日志
-   *
-   * @param url 当前处理的 URL
-   * @param e   异常对象
-   */
-  private void handleError(String url, Exception e) {
-    log.error("Error processing URL {}: {}", url, e.getMessage(), e);
   }
 
   /**
