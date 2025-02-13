@@ -51,7 +51,7 @@ public class AdvancedCrawlService {
   // 工作线程数量（可根据需要调整）
   private static final int WORKER_COUNT = 100;
   // 最大爬取深度（防止无限制递归）
-  private static final int MAX_DEPTH = 3;
+  private static final int MAX_DEPTH = 5;
 
   /**
    * 内部任务类，记录 URL 及其爬取深度
