@@ -15,7 +15,7 @@ import com.litongjava.tio.utils.snowflake.SnowflakeIdUtils;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.LoadState;
 
-public class WebPageService {
+public class CrawlWebPageService {
 
   private final Striped<Lock> stripedLocks = Striped.lock(256);
 

@@ -24,8 +24,10 @@ import com.litongjava.db.activerecord.Row;
 import com.litongjava.ehcache.EhCacheKit;
 import com.litongjava.jfinal.aop.Aop;
 import com.litongjava.model.web.WebPageContent;
+import com.litongjava.playwright.dao.WebPageDao;
 import com.litongjava.playwright.pool.PlaywrightPool;
 import com.litongjava.playwright.utils.TaskExecutorUtils;
+import com.litongjava.playwright.utils.WebsiteUrlUtils;
 import com.litongjava.playwright.vo.CrawlTask;
 import com.litongjava.tio.utils.hutool.FilenameUtils;
 import com.litongjava.tio.utils.hutool.StrUtil;
@@ -52,6 +54,8 @@ public class AdvancedCrawlService {
   private String baseDomain;
   private String tableName;
 
+  WebPageDao webPageDao = Aop.get(WebPageDao.class);
+
   // 工作线程数量（可根据需要调整）
   private static final int WORKER_COUNT = 100;
   // 最大爬取深度（防止无限制递归）
@@ -74,7 +78,7 @@ public class AdvancedCrawlService {
    * @param startUrl 爬虫入口 URL
    */
   public void start(String startUrl) {
-    String normalizedStartUrl = normalizeUrl(startUrl);
+    String normalizedStartUrl = WebsiteUrlUtils.normalizeUrl(startUrl);
     this.baseDomain = extractDomain(normalizedStartUrl);
     submitInitialTask(normalizedStartUrl, 0);
     // 启动多个工作线程（虚拟线程），实现并发爬取
@@ -183,7 +187,7 @@ public class AdvancedCrawlService {
   private void processTask(CrawlTask task) {
     String url = task.getUrl();
     int currentDepth = task.getDepth();
-    String canonical = canonicalizeUrl(url);
+    String canonical = WebsiteUrlUtils.canonicalizeUrl(url);
     // 检查该 URL 是否已累计失败达到上限
     Integer failCount = EhCacheKit.get(FAIL_CACHE, canonical);
     if (failCount != null && failCount >= MAX_RETRIES) {
@@ -195,7 +199,7 @@ public class AdvancedCrawlService {
     if (url.endsWith(".pdf")) {
       try {
         // 处理 PDF 文件
-        String content = Aop.get(WebPageService.class).getPdfContent(url);
+        String content = Aop.get(CrawlWebPageService.class).getPdfContent(url);
         String suffix = FilenameUtils.getSuffix(url);
         String filename = FilenameUtils.getBaseName(url);
         if (content != null) {
@@ -212,7 +216,7 @@ public class AdvancedCrawlService {
       while (attempt < MAX_RETRIES && !success) {
         try {
           log.info("Processing URL: {} (Attempt {}/{})", url, attempt + 1, MAX_RETRIES);
-          WebPageContent webPage = Aop.get(WebPageService.class).getHtml(url);
+          WebPageContent webPage = Aop.get(CrawlWebPageService.class).getHtml(url);
           String title = webPage.getTitle();
           String html = webPage.getContent();
           saveContent(url, title, "html", html);
@@ -249,7 +253,7 @@ public class AdvancedCrawlService {
     Elements elements = doc.select("a[href]");
     for (Element el : elements) {
       String absUrl = el.absUrl("href");
-      String normalized = normalizeUrl(absUrl);
+      String normalized = WebsiteUrlUtils.normalizeUrl(absUrl);
       if (StrUtil.isBlank(normalized)) {
         continue;
       }
@@ -264,15 +268,16 @@ public class AdvancedCrawlService {
    * 保存页面内容到数据库（使用 Striped 锁防止并发写入同一 URL）
    */
   private void saveContent(String url, String title, String type, String html) {
-    String canonical = canonicalizeUrl(url);
-    if (exists(tableName, "url", canonical)) {
+
+    String canonical = WebsiteUrlUtils.canonicalizeUrl(url);
+    if (webPageDao.exists(tableName, "url", canonical)) {
       return;
     }
 
     Lock lock = stripedLocks.get(canonical);
     lock.lock();
     try {
-      if (exists(tableName, "url", canonical)) {
+      if (webPageDao.exists(tableName, "url", canonical)) {
         return;
       }
       Row row = new Row().set("id", SnowflakeIdUtils.id()).set("url", canonical).set("title", title).set("type", type).set("html", html).set("text", Jsoup.parse(html).text());
@@ -283,35 +288,22 @@ public class AdvancedCrawlService {
     }
   }
 
-  private boolean exists(String cacheTableName, String field, String value) {
-    String cacheName = cacheTableName + "_" + field;
-    Boolean cacheData = EhCacheKit.get(cacheName, value);
-    if (cacheData != null) {
-      return cacheData;
-    }
-    boolean exists = Db.exists(tableName, field, value);
-    if (exists) {
-      EhCacheKit.put(cacheName, value, exists);
-    }
-    return exists;
-  }
-
   /**
    * 判断是否需要处理某个 URL
    */
   private boolean shouldProcess(String url) {
     if (url == null || url.isEmpty())
       return false;
-    String normalized = normalizeUrl(url);
+    String normalized = WebsiteUrlUtils.normalizeUrl(url);
     if (!isSameDomain(normalized)) {
       return false;
     }
-    String canonical = canonicalizeUrl(url);
+    String canonical = WebsiteUrlUtils.canonicalizeUrl(url);
     Integer failureCount = EhCacheKit.get(FAIL_CACHE, canonical);
     if (failureCount != null && failureCount >= MAX_RETRIES) {
       return false;
     }
-    return !exists(tableName, "url", canonical);
+    return !webPageDao.exists(tableName, "url", canonical);
   }
 
   /**
@@ -320,23 +312,6 @@ public class AdvancedCrawlService {
   private boolean isSameDomain(String url) {
     String domain = extractDomain(url);
     return domain.equalsIgnoreCase(baseDomain);
-  }
-
-  /**
-   * 规范化 URL：剔除锚点部分，去除尾部斜杠，并做 trim
-   */
-  private String normalizeUrl(String url) {
-    if (url == null || url.isEmpty())
-      return "";
-    int index = url.indexOf("#");
-    if (index != -1) {
-      url = url.substring(0, index);
-    }
-    url = url.trim();
-    if (url.endsWith("/") && url.length() > 1) {
-      url = url.substring(0, url.length() - 1);
-    }
-    return url;
   }
 
   /**
@@ -357,18 +332,10 @@ public class AdvancedCrawlService {
   }
 
   /**
-   * 生成 URL 的标准形式，去除协议部分（http, https）
-   */
-  private String canonicalizeUrl(String url) {
-    String normalized = normalizeUrl(url);
-    return normalized.replaceFirst("(?i)^(https?://)", "");
-  }
-
-  /**
    * 更新指定 URL 的失败计数，失败次数超过 MAX_RETRIES 后，下次将跳过该 URL
    */
   private void updateFailureCount(String url) {
-    String canonical = canonicalizeUrl(url);
+    String canonical = WebsiteUrlUtils.canonicalizeUrl(url);
     Integer count = EhCacheKit.get(FAIL_CACHE, canonical);
     if (count == null) {
       count = 0;
