@@ -1,13 +1,20 @@
 package com.litongjava.playwright.pool;
 
+import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
+
+import lombok.extern.slf4j.Slf4j;
+
 import com.microsoft.playwright.BrowserType.LaunchOptions;
 
 /**
@@ -15,12 +22,15 @@ import com.microsoft.playwright.BrowserType.LaunchOptions;
  * 每次 acquirePage() 从池中取出一个 BrowserContext，并创建一个 Page，
  * 当 Page 关闭时自动将 BrowserContext 归还池中。
  */
+@Slf4j
 public class PlaywrightPool {
   private static BlockingQueue<BrowserContext> pool = null;
   private static BlockingQueue<Playwright> playwrightPool = null;
   private static BlockingQueue<Browser> browserPool = null;
   private static int poolSize = 0;
   public static LaunchOptions launchOptions = new BrowserType.LaunchOptions().setHeadless(true);
+
+  private static ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
 
   /**
    * 构造时初始化 Playwright、Browser 以及固定数量的 BrowserContext
@@ -41,6 +51,11 @@ public class PlaywrightPool {
       browserPool.offer(browser);
       pool.offer(context);
     }
+
+    scheduler.scheduleAtFixedRate(() -> {
+      new Random().nextInt(1,10);
+      log.info("PlaywrightPool - Available: {}/{}", PlaywrightPool.availableCount(), PlaywrightPool.totalCount());
+    }, 0, 30, TimeUnit.SECONDS);
   }
 
   /**

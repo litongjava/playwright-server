@@ -5,7 +5,6 @@ import java.util.concurrent.locks.Lock;
 import com.google.common.util.concurrent.Striped;
 import com.litongjava.db.activerecord.Db;
 import com.litongjava.db.activerecord.Row;
-import com.litongjava.ehcache.EhCacheKit;
 import com.litongjava.model.web.WebPageContent;
 import com.litongjava.playwright.consts.TableNames;
 import com.litongjava.playwright.pool.PlaywrightPool;
@@ -15,7 +14,7 @@ import com.litongjava.tio.utils.snowflake.SnowflakeIdUtils;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.LoadState;
 
-public class CrawlWebPageService {
+public class WebPageCrawlService {
 
   private final Striped<Lock> stripedLocks = Striped.lock(256);
 
@@ -31,16 +30,9 @@ public class CrawlWebPageService {
       String sql = "select html from %s where type=? and url=?";
       sql = String.format(sql, TableNames.web_page_cache);
       String title = FilenameUtils.getBaseName(url);
-      String cacheName = TableNames.web_page_cache + "_html";
-      //eh cache
-      String content = EhCacheKit.get(cacheName, url);
-      if (content != null) {
-        return content;
-      }
       //db cache
-      content = Db.queryStr(sql, "pdf", url);
+      String content = Db.queryStr(sql, "pdf", url);
       if (content != null) {
-        EhCacheKit.put(cacheName, url, content);
         return content;
       }
       // http
@@ -50,7 +42,6 @@ public class CrawlWebPageService {
           //
           .set("html", content);
       Db.save(TableNames.web_page_cache, row);
-      EhCacheKit.put(cacheName, url, content);
       return content;
     } finally {
       lock.unlock();
@@ -64,20 +55,13 @@ public class CrawlWebPageService {
     try {
       String sql = "select title,html from %s where type=? and url=?";
       sql = String.format(sql, TableNames.web_page_cache);
-      String cacheName = TableNames.web_page_cache + "_html";
-      //eh cache
-      WebPageContent content = EhCacheKit.get(cacheName, url);
-      if (content != null) {
-        return content;
-      }
       //db cache
       Row first = Db.findFirst(sql, "html", url);
-      
+
       if (first != null) {
         String title = first.getStr("title");
         String html = first.getString("html");
-        content=new WebPageContent(title, url).setContent(html);
-        EhCacheKit.put(cacheName, url, content);
+        WebPageContent content = new WebPageContent(title, url).setContent(html);
         return content;
       }
       // http
@@ -98,21 +82,18 @@ public class CrawlWebPageService {
         page.waitForLoadState(LoadState.LOAD);
         String html = page.content();
         String title = page.title();
-        
+
         Row row = new Row().set("id", SnowflakeIdUtils.id()).set("url", url).set("title", title).set("type", "html")
             //
             .set("html", html);
         Db.save(TableNames.web_page_cache, row);
-        content = new WebPageContent(title, url, "", html);
-        EhCacheKit.put(cacheName, url, content);
-        
-        return content;
-      } 
-    }finally {
+        return new WebPageContent(title, url, "", html);
+      }
+    } finally {
       lock.unlock();
     }
   }
-  
+
   /**
    * 对 URL 进行预处理，针对路径中的非法字符进行编码。
    *

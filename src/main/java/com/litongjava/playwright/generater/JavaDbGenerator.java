@@ -34,7 +34,7 @@ public class JavaDbGenerator {
     generator.setGenerateDataDictionary(false); // 不生成数据字典
     generator.setRemovedTableNamePrefixes("t_"); // 移除表名前缀，如 "t_"，生成的 Model 名为 "User" 而非 "TUser"
 
-    generator.addBlacklist("web_page_cache", "hawaii_web_page", "hawaii_kapioalni_web_page", "web_page_url");
+    generator.addWhitelist("web_page_cache", "hawaii_web_page", "hawaii_kapioalni_web_page", "web_page_url");
 
     // 开始生成
     generator.generate();

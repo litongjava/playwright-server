@@ -21,18 +21,6 @@
     <main.class>com.litongjava.playwright.PlaywrightApp</main.class>
   </properties>
   <dependencies>
-
-    <dependency>
-      <groupId>org.quartz-scheduler</groupId>
-      <artifactId>quartz</artifactId>
-      <version>2.3.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.quartz-scheduler</groupId>
-      <artifactId>quartz-jobs</artifactId>
-      <version>2.3.0</version>
-    </dependency>
-
     <dependency>
       <groupId>org.apache.pdfbox</groupId>
       <artifactId>pdfbox</artifactId>
@@ -126,12 +114,6 @@
       <groupId>com.litongjava</groupId>
       <artifactId>tio-boot-admin</artifactId>
       <version>1.0.0</version>
-    </dependency>
-
-    <dependency>
-      <groupId>net.sf.ehcache</groupId>
-      <artifactId>ehcache-core</artifactId>
-      <version>2.6.11</version>
     </dependency>
 
     <dependency>
