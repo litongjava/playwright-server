@@ -1,6 +1,5 @@
 package com.litongjava.playwright.service;
 
-import java.net.URL;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -13,7 +12,6 @@ import org.jsoup.select.Elements;
 import com.litongjava.db.activerecord.Db;
 import com.litongjava.jfinal.aop.Aop;
 import com.litongjava.model.web.WebPageContent;
-import com.litongjava.playwright.consts.TableNames;
 import com.litongjava.playwright.dao.WebPageDao;
 import com.litongjava.playwright.model.WebPageUrl;
 import com.litongjava.playwright.utils.MarkdownUtils;
@@ -30,9 +28,16 @@ public class CrawlWebPageTask {
 
   WebPageCrawlService crawlWebPageService = Aop.get(WebPageCrawlService.class);
   WebPageDao webPageDao = Aop.get(WebPageDao.class);
-  String tableName = TableNames.hawaii_kapioalni_web_page;
-  String baseDomain = "kapiolani.hawaii.edu";
-  String baseUrl = "https://www.kapiolani.hawaii.edu";
+  String tableName;
+  String baseUrl;
+  String baseDomain;
+
+  public CrawlWebPageTask(String url, String tableName) {
+    this.baseUrl = url;
+    this.tableName = tableName;
+    String domain = WebsiteUrlUtils.extractDomain(url);
+    this.baseDomain = domain;
+  }
 
   public void run() {
 
@@ -140,27 +145,10 @@ public class CrawlWebPageTask {
   }
 
   /**
-   * 提取 URL 中的域名（不含 www. 前缀）
-   */
-  private String extractDomain(String url) {
-    try {
-      @SuppressWarnings("deprecation")
-      URL netUrl = new URL(url);
-      String host = netUrl.getHost();
-      if (host != null) {
-        return host.startsWith("www.") ? host.substring(4) : host;
-      }
-    } catch (Exception e) {
-      log.error("Error extracting domain from url: {}", url, e);
-    }
-    return "";
-  }
-
-  /**
    * 判断 URL 是否与基础域名相同
    */
   private boolean isSameDomain(String url) {
-    String domain = extractDomain(url);
+    String domain = WebsiteUrlUtils.extractDomain(url);
     return domain.equalsIgnoreCase(baseDomain);
   }
 
